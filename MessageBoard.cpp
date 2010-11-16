@@ -62,8 +62,8 @@ main (
     ChatMessageTypeSupport_var      chatMessageTS;
     NameServiceTypeSupport_var      nameServiceTS;
     NamedMessageTypeSupport_var     namedMessageTS;
-    NamedMessageDataReader_var      chatAdmin;
-    NamedMessageSeq_var             msgSeq = new NamedMessageSeq();
+    ChatMessageDataReader_var      chatAdmin;
+    ChatMessageSeq_var             msgSeq = new ChatMessageSeq();
     SampleInfoSeq_var               infoSeq = new SampleInfoSeq();
 
     /* QosPolicy holders */
@@ -161,29 +161,6 @@ main (
         NULL,
         STATUS_MASK_NONE);
     checkHandle(chatMessageTopic.in(), "DDS::DomainParticipant::create_topic (ChatMessage)");
-    
-    /* Set the DurabilityQosPolicy to TRANSIENT. */
-    status = participant->get_default_topic_qos(setting_topic_qos);
-    checkStatus(status, "DDS::DomainParticipant::get_default_topic_qos");
-    setting_topic_qos.durability.kind = DDS::TRANSIENT_DURABILITY_QOS;
-
-    /* Create the NameService Topic. */
-    nameServiceTopic = participant->create_topic( 
-        "Chat_NameService", 
-        nameServiceTypeName, 
-        setting_topic_qos, 
-        NULL,
-        STATUS_MASK_NONE);
-    checkHandle(nameServiceTopic.in(), "DDS::DomainParticipant::create_topic");
-    
-    /* Create a multitopic that substitutes the userID with its corresponding userName. */
-    namedMessageTopic = participant->create_simulated_multitopic(
-        "Chat_NamedMessage", 
-        namedMessageTypeName, 
-        "SELECT userID, name AS userName, index, content "
-            "FROM Chat_NameService NATURAL JOIN Chat_ChatMessage WHERE userID <> %0",
-        parameterList);
-    checkHandle(namedMessageTopic.in(), "DDS::ExtDomainParticipant::create_simulated_multitopic");
 
     /* Adapt the default SubscriberQos to read from the "ChatRoom" Partition. */
     status = participant->get_default_subscriber_qos (sub_qos);
@@ -197,14 +174,20 @@ main (
     
     /* Create a DataReader for the NamedMessage Topic (using the appropriate QoS). */
     parentReader = chatSubscriber->create_datareader( 
-        namedMessageTopic.in(), 
+        chatMessageTopic.in(), 
         DATAREADER_QOS_USE_TOPIC_QOS, 
         NULL,
         STATUS_MASK_NONE);
+    DDS::DataReaderQos dr_qos;
+    status = parentReader->get_qos(dr_qos);
+    checkStatus(status, "DDS::DataReader::get_default_datareader_qos");
     checkHandle(parentReader, "DDS::Subscriber::create_datareader");
     
+    cout << "Data Reader QOS: " << endl;
+    printReaderQos(dr_qos);
+    
     /* Narrow the abstract parent into its typed representative. */
-    chatAdmin = Chat::NamedMessageDataReader::_narrow(parentReader);
+    chatAdmin = Chat::ChatMessageDataReader::_narrow(parentReader);
     checkHandle(chatAdmin.in(), "Chat::NamedMessageDataReader::_narrow");
     
     /* Print a message that the MessageBoard has opened. */
@@ -223,15 +206,15 @@ main (
             ANY_SAMPLE_STATE, 
             ANY_VIEW_STATE, 
             ALIVE_INSTANCE_STATE );
-        checkStatus(status, "Chat::NamedMessageDataReader::take");
+        checkStatus(status, "Chat::ChatMessageDataReader::take");
 
         for (ULong i = 0; i < msgSeq->length(); i++) {
-            NamedMessage *msg = &(msgSeq[i]);
+            ChatMessage *msg = &(msgSeq[i]);
             if (msg->userID == TERMINATION_MESSAGE) {
                 cout << "Termination message received: exiting..." << endl;
                 terminated = TRUE;
             } else {
-                cout << msg->userName << ": " << msg->content << endl;
+                cout << msg->content << endl;
             }
         }
 
