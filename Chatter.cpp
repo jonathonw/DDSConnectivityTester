@@ -24,6 +24,8 @@
 #include <sstream>
 #include <iostream>
 #include <unistd.h>
+#include <iomanip>
+
 #include "ccpp_dds_dcps.h"
 #include "CheckStatus.h"
 #include "ccpp_Chat.h"
@@ -38,6 +40,7 @@ using namespace Chat;
 void printTopicQos(DDS::TopicQos topicQos);
 void printReaderQos(DDS::DataReaderQos readerQos);
 void printWriterQos(DDS::DataWriterQos readerQos);
+void printCurrentTime(DDS::DomainParticipant &participant);
 
 int 
 main (
@@ -238,6 +241,8 @@ main (
  
     /* Write any number of messages, re-using the existing string-buffer: no leak!!. */
     for (i = 1; i <= NUM_MSG && ownID != TERMINATION_MESSAGE; i++) {
+	printCurrentTime(*participant);
+
         buf.str( string("") );
         msg->index = i;
         buf << "Message no. " << i;
@@ -422,5 +427,16 @@ void printReaderQos(DDS::DataReaderQos readerQos) {
   
   cout << endl;
 }
+
+void printCurrentTime(DDS::DomainParticipant &participant) {
+	Time_t currentTime;
+	ReturnCode_t status = participant.get_current_time(currentTime);
+	checkStatus(status, "DDS::DomainParticipant::get_current_time");
+
+	double formattedTime = (double)currentTime.sec + (double)currentTime.nanosec * 1.0E-9;
+	cout << "Current time: " << fixed << setprecision(6) << formattedTime << endl;
+}
+
+
 
 
