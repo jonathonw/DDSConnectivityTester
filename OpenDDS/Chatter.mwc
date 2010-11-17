@@ -1,0 +1,4 @@
+workspace(Chatter) {
+  Chatter.mpc
+  MessageBoard.mpc
+}

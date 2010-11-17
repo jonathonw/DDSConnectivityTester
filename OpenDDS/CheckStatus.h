@@ -24,7 +24,18 @@
 #ifndef __CHECKSTATUS_H__
 #define __CHECKSTATUS_H__
 
-#include "ccpp_dds_dcps.h"
+#include <dds/DCPS/Service_Participant.h>
+#include <dds/DCPS/Marked_Default_Qos.h>
+#include <dds/DCPS/PublisherImpl.h>
+#include <dds/DCPS/transport/framework/TheTransportFactory.h>
+#include <dds/DCPS/transport/simpleTCP/SimpleTcpConfiguration.h>
+
+#ifdef ACE_AS_STATIC_LIBS
+#include <dds/DCPS/transport/simpleTCP/SimpleTcp.h>
+#endif
+
+#include <ace/streams.h>
+#include "ace/Get_Opt.h"
 #include <iostream>
 
 using namespace std;

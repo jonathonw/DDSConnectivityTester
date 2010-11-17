@@ -25,6 +25,9 @@ module Chat {
 
     const long MAX_NAME = 32;
     typedef string<MAX_NAME> nameType;
+    
+    #pragma DCPS_DATA_TYPE "Chat::ChatMessage"
+    #pragma DCPS_DATA_KEY "Chat::ChatMessage userID"
 
     struct ChatMessage {
         long      userID;          // owner of message
@@ -32,6 +35,9 @@ module Chat {
         string    content;         // message body
     };
 #pragma keylist ChatMessage userID
+
+    #pragma DCPS_DATA_TYPE "Chat::NameService"
+    #pragma DCPS_DATA_KEY "Chat::NameService userID"
 
     struct NameService {
         long     userID;           // unique user identification

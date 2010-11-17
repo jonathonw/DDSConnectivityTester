@@ -25,14 +25,29 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "ccpp_dds_dcps.h"
+#include <dds/DCPS/Service_Participant.h>
+#include <dds/DCPS/Marked_Default_Qos.h>
+#include <dds/DCPS/PublisherImpl.h>
+#include <dds/DCPS/transport/framework/TheTransportFactory.h>
+#include <dds/DCPS/transport/simpleTCP/SimpleTcpConfiguration.h>
+
+#ifdef ACE_AS_STATIC_LIBS
+#include <dds/DCPS/transport/simpleTCP/SimpleTcp.h>
+#endif
+
+#include <ace/streams.h>
+#include "ace/Get_Opt.h"
+
 #include "CheckStatus.h"
-#include "ccpp_Chat.h"
-#include "multitopic.h"
+#include "ChatC.h"
+#include "ChatS.h"
+#include "ChatTypeSupportS.h"
+#include "ChatTypeSupportC.h"
+#include "ChatTypeSupportImpl.h"
 
 using namespace DDS;
 using namespace Chat;
-
+using namespace CORBA;
 
 
 #define TERMINATION_MESSAGE -1 
@@ -50,8 +65,8 @@ main (
 {
     /* Generic DDS entities */
     DomainParticipantFactory_var    dpf;
-    DomainParticipant_ptr           parentDP;
-    ExtDomainParticipant_var        participant;
+    DomainParticipant_var           parentDP;
+    //ExtDomainParticipant_var        participant;
     Topic_var                       chatMessageTopic;
     Topic_var                       nameServiceTopic;
     TopicDescription_var            namedMessageTopic;
@@ -61,10 +76,9 @@ main (
     /* Type-specific DDS entities */
     ChatMessageTypeSupport_var      chatMessageTS;
     NameServiceTypeSupport_var      nameServiceTS;
-    NamedMessageTypeSupport_var     namedMessageTS;
     ChatMessageDataReader_var      chatAdmin;
-    ChatMessageSeq_var             msgSeq = new ChatMessageSeq();
-    SampleInfoSeq_var               infoSeq = new SampleInfoSeq();
+    ChatMessageSeq             msgSeq ;
+    SampleInfoSeq               infoSeq ;
 
     /* QosPolicy holders */
     TopicQos                        reliable_topic_qos;
@@ -73,11 +87,11 @@ main (
     DDS::StringSeq                  parameterList;
 
     /* DDS Identifiers */
-    DomainId_t                      domain = NULL;
+    DomainId_t                      domain = 0;
     ReturnCode_t                    status;
 
     /* Others */
-    bool                            terminated = FALSE;
+    bool                            terminated = false;
     const char *                    partitionName = "ChatRoom";
     char  *                         chatMessageTypeName = NULL;
     char  *                         nameServiceTypeName = NULL;
@@ -101,83 +115,85 @@ main (
     }
       
     /* Create a DomainParticipantFactory and a DomainParticipant (using Default QoS settings. */
-    dpf = DomainParticipantFactory::get_instance();
+    dpf = TheParticipantFactoryWithArgs(argc, argv);
     checkHandle(dpf.in(), "DDS::DomainParticipantFactory::get_instance");
     parentDP = dpf->create_participant (
         domain, 
         PARTICIPANT_QOS_DEFAULT, 
         NULL,
-        STATUS_MASK_NONE);
+        OpenDDS::DCPS::DEFAULT_STATUS_MASK);
     checkHandle(parentDP, "DDS::DomainParticipantFactory::create_participant");
     
+    OpenDDS::DCPS::TransportImpl_rch transport_impl =
+      TheTransportFactory->create_transport_impl( OpenDDS::DCPS::DEFAULT_SIMPLE_TCP_ID, OpenDDS::DCPS::AUTO_CONFIG);
+    
     /* Narrow the normal participant to its extended representative */
-    participant = ExtDomainParticipantImpl::_narrow(parentDP);
-    checkHandle(participant.in(), "DDS::ExtDomainParticipant::_narrow");
+    //participant = ExtDomainParticipantImpl::_narrow(parentDP);
+    //checkHandle(participant.in(), "DDS::ExtDomainParticipant::_narrow");
 
     /* Register the required datatype for ChatMessage. */
-    chatMessageTS = new ChatMessageTypeSupport();
+    chatMessageTS = new ChatMessageTypeSupportImpl();
     checkHandle(chatMessageTS.in(), "new ChatMessageTypeSupport");
     chatMessageTypeName = chatMessageTS->get_type_name();
     status = chatMessageTS->register_type(
-        participant.in(), 
+        parentDP.in(), 
         chatMessageTypeName);
     checkStatus(status, "Chat::ChatMessageTypeSupport::register_type");
     
     /* Register the required datatype for NameService. */
-    nameServiceTS = new NameServiceTypeSupport();
+    nameServiceTS = new NameServiceTypeSupportImpl();
     checkHandle(nameServiceTS.in(), "new NameServiceTypeSupport");
     nameServiceTypeName =  nameServiceTS->get_type_name();
     status = nameServiceTS->register_type(
-        participant.in(), 
+        parentDP.in(), 
         nameServiceTypeName);
     checkStatus(status, "Chat::NameServiceTypeSupport::register_type");
     
-    /* Register the required datatype for NamedMessage. */
-    namedMessageTS = new NamedMessageTypeSupport();
-    checkHandle(namedMessageTS.in(), "new NamedMessageTypeSupport");
-    namedMessageTypeName = namedMessageTS->get_type_name();
-    status = namedMessageTS->register_type(
-        participant.in(), 
-        namedMessageTypeName);
-    checkStatus(status, "Chat::NamedMessageTypeSupport::register_type");
     
     /* Set the ReliabilityQosPolicy to RELIABLE. */
-    status = participant->get_default_topic_qos(reliable_topic_qos);
+    status = parentDP->get_default_topic_qos(reliable_topic_qos);
     checkStatus(status, "DDS::DomainParticipant::get_default_topic_qos");
     reliable_topic_qos.reliability.kind = DDS::RELIABLE_RELIABILITY_QOS;
     
     /* Make the tailored QoS the new default. */
-    status = participant->set_default_topic_qos(reliable_topic_qos);
+    status = parentDP->set_default_topic_qos(reliable_topic_qos);
     checkStatus(status, "DDS::DomainParticipant::set_default_topic_qos");
     
     cout << "Topic QOS: " << endl;
     printTopicQos(reliable_topic_qos);
 
     /* Use the changed policy when defining the ChatMessage topic */
-    chatMessageTopic = participant->create_topic( 
+    chatMessageTopic = parentDP->create_topic( 
         "Chat_ChatMessage", 
         chatMessageTypeName, 
         reliable_topic_qos, 
         NULL,
-        STATUS_MASK_NONE);
+        OpenDDS::DCPS::DEFAULT_STATUS_MASK);
     checkHandle(chatMessageTopic.in(), "DDS::DomainParticipant::create_topic (ChatMessage)");
 
     /* Adapt the default SubscriberQos to read from the "ChatRoom" Partition. */
-    status = participant->get_default_subscriber_qos (sub_qos);
+    status = parentDP->get_default_subscriber_qos (sub_qos);
     checkStatus(status, "DDS::DomainParticipant::get_default_subscriber_qos");
     sub_qos.partition.name.length(1);
     sub_qos.partition.name[0] = partitionName;
 
     /* Create a Subscriber for the MessageBoard application. */
-    chatSubscriber = participant->create_subscriber(sub_qos, NULL, STATUS_MASK_NONE);
+    chatSubscriber = parentDP->create_subscriber(sub_qos, NULL, OpenDDS::DCPS::DEFAULT_STATUS_MASK);
     checkHandle(chatSubscriber.in(), "DDS::DomainParticipant::create_subscriber");
+    
+    // Attach the subscriber to the transport. 
+    status = transport_impl->attach(chatSubscriber.in());
+    if (status != OpenDDS::DCPS::ATTACH_OK) {
+      std::cerr << "Failed to attach to the transport." << std::endl; 
+      return 1;
+    }
     
     /* Create a DataReader for the NamedMessage Topic (using the appropriate QoS). */
     parentReader = chatSubscriber->create_datareader( 
         chatMessageTopic.in(), 
         DATAREADER_QOS_USE_TOPIC_QOS, 
         NULL,
-        STATUS_MASK_NONE);
+        OpenDDS::DCPS::DEFAULT_STATUS_MASK);
     DDS::DataReaderQos dr_qos;
     status = parentReader->get_qos(dr_qos);
     checkStatus(status, "DDS::DataReader::get_default_datareader_qos");
@@ -208,11 +224,11 @@ main (
             ALIVE_INSTANCE_STATE );
         checkStatus(status, "Chat::ChatMessageDataReader::take");
 
-        for (ULong i = 0; i < msgSeq->length(); i++) {
+        for (ULong i = 0; i < msgSeq.length(); i++) {
             ChatMessage *msg = &(msgSeq[i]);
             if (msg->userID == TERMINATION_MESSAGE) {
                 cout << "Termination message received: exiting..." << endl;
-                terminated = TRUE;
+                terminated = true;
             } else {
                 cout << msg->content << endl;
             }
@@ -236,17 +252,17 @@ main (
     checkStatus(status, "DDS::Subscriber::delete_datareader");
 
     /* Remove the Subscriber. */
-    status = participant->delete_subscriber(chatSubscriber.in());
+    status = parentDP->delete_subscriber(chatSubscriber.in());
     checkStatus(status, "DDS::DomainParticipant::delete_subscriber");
     
     /* Remove the Topics. */
-    status = participant->delete_simulated_multitopic(namedMessageTopic.in());
-    checkStatus(status, "DDS::ExtDomainParticipant::delete_simulated_multitopic");
+    //status = parentDP->delete_simulated_multitopic(namedMessageTopic.in());
+    //checkStatus(status, "DDS::ExtDomainParticipant::delete_simulated_multitopic");
 
-    status = participant->delete_topic(nameServiceTopic.in());
+    status = parentDP->delete_topic(nameServiceTopic.in());
     checkStatus(status, "DDS::DomainParticipant::delete_topic (nameServiceTopic)");
 
-    status = participant->delete_topic(chatMessageTopic.in());
+    status = parentDP->delete_topic(chatMessageTopic.in());
     checkStatus(status, "DDS::DomainParticipant::delete_topic (chatMessageTopic)");
 
     /* De-allocate the type-names. */
@@ -255,7 +271,7 @@ main (
     string_free(chatMessageTypeName);
 
     /* Remove the DomainParticipant. */
-    status = dpf->delete_participant(participant.in());
+    status = dpf->delete_participant(parentDP.in());
     checkStatus(status, "DDS::DomainParticipantFactory::delete_participant");
     
     exit(0);    
@@ -277,7 +293,7 @@ void printTopicQos(DDS::TopicQos topicQos) {
   }
   double seconds = topicQos.reliability.max_blocking_time.sec + topicQos.reliability.max_blocking_time.nanosec/1.0E9;
   cout << "  max_blocking_time (sec): " << seconds  << endl;
-  cout << "  synchronous: " << (int)topicQos.reliability.synchronous << endl;
+  cout << "  synchronous: unsupported in OpenDDS" << endl;
   
   //liveliness
   cout << "Liveliness: " << endl;
@@ -322,7 +338,7 @@ void printWriterQos(DDS::DataWriterQos writerQos) {
   }
   double seconds = writerQos.reliability.max_blocking_time.sec + writerQos.reliability.max_blocking_time.nanosec/1.0E9;
   cout << "  max_blocking_time (sec): " << seconds  << endl;
-  cout << "  synchronous: " << (int)writerQos.reliability.synchronous << endl;
+  cout << "  synchronous: unsupported in OpenDDS" << endl;
   
   //liveliness
   cout << "Liveliness: " << endl;
@@ -367,7 +383,7 @@ void printReaderQos(DDS::DataReaderQos readerQos) {
   }
   double seconds = readerQos.reliability.max_blocking_time.sec + readerQos.reliability.max_blocking_time.nanosec/1.0E9;
   cout << "  max_blocking_time (sec): " << seconds  << endl;
-  cout << "  synchronous: " << (int)readerQos.reliability.synchronous << endl;
+  cout << "  synchronous: unsupported in opendds"<< endl;
   
   //liveliness
   cout << "Liveliness: " << endl;

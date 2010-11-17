@@ -1,0 +1,17 @@
+project(MessageBoard) : dcps {
+  exename=messageBoard
+  
+  TypeSupport_Files {
+    Chat.idl
+  }
+  
+  IDL_Files {
+    Chat.idl
+    ChatTypeSupport.idl
+  }
+  
+  Source_Files {
+    MessageBoard.cpp
+    CheckStatus.cpp
+  }
+}

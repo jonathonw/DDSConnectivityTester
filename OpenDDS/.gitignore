@@ -1,0 +1,15 @@
+.depend.*
+*C.cpp
+*C.h
+*C.inl
+*S.cpp
+*S.h
+*S.inl
+*TypeSupportImpl.cpp
+*TypeSupportImpl.h
+Makefile
+Makefile.*
+chatter
+messageBoard
+repo.ior
+ChatTypeSupport.idl

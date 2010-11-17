@@ -1,0 +1,17 @@
+project(Chatter) : dcps {
+  exename=chatter
+  
+  TypeSupport_Files {
+    Chat.idl
+  }
+  
+  IDL_Files {
+    Chat.idl
+    ChatTypeSupport.idl
+  }
+  
+  Source_Files {
+    Chatter.cpp
+    CheckStatus.cpp
+  }
+}
