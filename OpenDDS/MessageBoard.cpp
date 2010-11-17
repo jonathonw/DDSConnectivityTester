@@ -24,6 +24,7 @@
 #include <iostream>
 #include <string.h>
 #include <unistd.h>
+#include <iomanip>
 
 #include <dds/DCPS/Service_Participant.h>
 #include <dds/DCPS/Marked_Default_Qos.h>
@@ -55,7 +56,7 @@ using namespace CORBA;
 void printTopicQos(DDS::TopicQos topicQos);
 void printReaderQos(DDS::DataReaderQos readerQos);
 void printWriterQos(DDS::DataWriterQos readerQos);
-
+void printCurrentTime(DDS::DomainParticipant &participant);
 
 
 int
@@ -230,6 +231,7 @@ main (
                 cout << "Termination message received: exiting..." << endl;
                 terminated = true;
             } else {
+                printCurrentTime(*parentDP);
                 cout << msg->content << endl;
             }
         }
@@ -406,4 +408,13 @@ void printReaderQos(DDS::DataReaderQos readerQos) {
   cout << "Latency Budget: " << seconds << endl;
   
   cout << endl;
+}
+
+void printCurrentTime(DDS::DomainParticipant &participant) {
+	Time_t currentTime;
+	ReturnCode_t status = participant.get_current_time(currentTime);
+	checkStatus(status, "DDS::DomainParticipant::get_current_time");
+
+	double formattedTime = (double)currentTime.sec + (double)currentTime.nanosec * 1.0E-9;
+	cout << "Current time: " << fixed << setprecision(6) << formattedTime << endl;
 }

@@ -241,7 +241,7 @@ main (
  
     /* Write any number of messages, re-using the existing string-buffer: no leak!!. */
     for (i = 1; i <= NUM_MSG && ownID != TERMINATION_MESSAGE; i++) {
-	printCurrentTime(*participant);
+        printCurrentTime(*participant);
 
         buf.str( string("") );
         msg->index = i;

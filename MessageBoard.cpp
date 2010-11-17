@@ -402,4 +402,3 @@ void printCurrentTime(DDS::DomainParticipant &participant) {
 	double formattedTime = (double)currentTime.sec + (double)currentTime.nanosec * 1.0E-9;
 	cout << "Current time: " << fixed << setprecision(6) << formattedTime << endl;
 }
-
