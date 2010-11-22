@@ -145,7 +145,7 @@ main (
     /* Set the ReliabilityQosPolicy to RELIABLE. */
     status = participant->get_default_topic_qos(reliable_topic_qos);
     checkStatus(status, "DDS::DomainParticipant::get_default_topic_qos");
-    reliable_topic_qos.reliability.kind = DDS::RELIABLE_RELIABILITY_QOS;
+    reliable_topic_qos.reliability.kind = DDS::BEST_EFFORT_RELIABILITY_QOS;
     
     /* Make the tailored QoS the new default. */
     status = participant->set_default_topic_qos(reliable_topic_qos);
