@@ -47,7 +47,7 @@
 #include "ChatTypeSupportImpl.h"
 
 #define MAX_MSG_LEN 256
-#define NUM_MSG 10
+#define NUM_MSG 60
 #define TERMINATION_MESSAGE -1 
 
 using namespace DDS;
