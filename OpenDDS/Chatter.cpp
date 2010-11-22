@@ -151,7 +151,7 @@ main (
     status = participant->get_default_topic_qos(reliable_topic_qos);
     printTopicQos(reliable_topic_qos);
     checkStatus(status, "DDS::DomainParticipant::get_default_topic_qos");
-    reliable_topic_qos.reliability.kind = RELIABLE_RELIABILITY_QOS;
+    reliable_topic_qos.reliability.kind = BEST_EFFORT_RELIABILITY_QOS;
     printTopicQos(reliable_topic_qos);
     
     /* Make the tailored QoS the new default. */
